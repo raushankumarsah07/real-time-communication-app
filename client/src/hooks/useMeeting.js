@@ -52,7 +52,8 @@ export default function useMeeting(code) {
 
   useEffect(() => {
     let cancelled = false;
-    const socket = io({ auth: { token: localStorage.getItem('token') } });
+    const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+    const socket = io(apiUrl || undefined, { auth: { token: localStorage.getItem('token') } });
     socketRef.current = socket;
 
     const upsert = (id, patch) => setRemotes((r) => ({ ...r, [id]: { ...r[id], ...patch } }));

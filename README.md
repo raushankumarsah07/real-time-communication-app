@@ -46,6 +46,66 @@ npm run dev            # http://localhost:5173
 Testing across two different devices/networks needs HTTPS and usually a TURN server
 (set `VITE_TURN_*` in `client/.env`, e.g. a free Metered/coturn server).
 
+## Deploy to Render and Vercel
+
+The backend must be deployed first because the frontend needs its public URL.
+
+### 1. Prepare MongoDB Atlas
+
+1. Create a MongoDB Atlas cluster and database user.
+2. In **Network Access**, allow the Render service to connect (for a quick
+   setup, add `0.0.0.0/0`; use tighter rules where possible).
+3. Copy the Atlas connection string. Replace its password and database name as
+   needed.
+
+### 2. Deploy the backend to Render
+
+1. Create a **Web Service** in Render and select this repository.
+2. Set **Root Directory** to `server`.
+3. Use:
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+4. Add these environment variables:
+   - `MONGO_URI`: your MongoDB Atlas connection string
+   - `JWT_SECRET`: a long random secret (at least 16 characters)
+   - `ENCRYPTION_KEY`: exactly 64 hexadecimal characters
+   - `CLIENT_URL`: your Vercel URL (you can update this after deploying Vercel)
+   - `NODE_ENV`: `production`
+5. Deploy and test `https://<render-service>.onrender.com/api/health`.
+   It should return `{"ok":true}`.
+
+Keep the Render URL without a trailing slash when using it below. Render's
+local filesystem is ephemeral, so uploaded files should use object storage or a
+persistent disk for production durability.
+
+### 3. Deploy the frontend to Vercel
+
+1. Import the same repository into Vercel.
+2. Set **Root Directory** to `client`.
+3. Vercel should detect Vite. Use:
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+4. Add this environment variable:
+   - `VITE_API_URL`: `https://<render-service>.onrender.com`
+5. Deploy.
+6. Copy the Vercel deployment URL into Render's `CLIENT_URL`, then redeploy
+   or restart the Render service.
+
+### Frontend environment code
+
+The frontend reads the Render URL from Vite's build-time environment:
+
+```js
+const apiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const api = axios.create({ baseURL: `${apiUrl}/api` });
+```
+
+Socket.IO uses the same `VITE_API_URL`. If it is empty, local development keeps
+using Vite's `/api` and `/socket.io` proxy.
+
+Do not commit `.env` files. Environment variables prefixed with `VITE_` are
+public in the browser bundle, so never put secrets in them.
+
 ## Architecture
 ```
 Browser A ──┐                              ┌── Browser B
